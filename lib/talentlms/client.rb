@@ -4,6 +4,11 @@ require 'base64'
 
 module TalentLMS
   class Client
+    POST_METHODS = [
+      'usersignup',
+      'addusertocourse',
+      'deleteuser'
+    ]
     def initialize(config = {})
       raise ArgumentError.new('Missing api_key') unless config.has_key?(:api_key)
       @auth_header = auth_header(config[:api_key])
@@ -21,14 +26,19 @@ module TalentLMS
 
     def route_for_method(method, options=nil)
       url = "https://#{@sub_domain}.talentlms.com/api/#{@version}/#{method}"
-      return url if options.nil?
+      return url if options.nil? || POST_METHODS.include?(method)
       arguments = options.map {|k,v| "#{k}:#{v}"}.join(',')
       "#{url}/#{arguments}"
     end
 
     def method_missing(sym, *args, &block)
       url = route_for_method(sym.to_s, *args)
-      response = HTTP.headers(@auth_header).get(url)
+      if POST_METHODS.include?(sym.to_s)
+        response = HTTP.headers(@auth_header).post(url, :form => args.first)
+      else
+        response = HTTP.headers(@auth_header).get(url)
+      end
+
       JSON.parse(response)
     end
   end
